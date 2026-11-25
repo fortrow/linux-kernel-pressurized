@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config SECURITY_PRESSURE
+	bool "Pressure Provenance, Secret UID, Device & Encrypted FD LSM"
+	depends on SECURITY && SECURITYFS && NET && INET
+	default y
+	help
+	  Enables the Pressure Linux Security Module providing:
+	  - Non-monotonic randomized 31-bit Feistel-encrypted public FDs
+	    mapped to randomized private fdtable slots
+	  - 3-strike violation audit logging and uncatchable SIGKILL
+	  - Public/secret kernel user & daemon UID mappings with pressure-authd
+	  - Universal /dev & net_device cryptographic IDs and seat exclusivity
+	  - Universal LOCAL vs. REMOTE provenance and event confinement

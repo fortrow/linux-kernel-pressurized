@@ -1,0 +1,62 @@
+# Pressure + sfw Declarative Policy Profile: Standalone TrimOS Dual-Stack Server
+# Validate with: sure check server.pr
+# Apply live:    sure load server.pr
+# Verify ready:  sure ready --require-sfw
+
+define $WAN_IF   = eth0;
+define $LAN_IF   = eth1;
+define $LAN4     = 10.10.0.0/24;
+define $LAN6     = fd00:10::/64;
+
+# 1. Server devices & network interfaces (optional allows clean load before NIC hotplug)
+device /dev/tty1 label dev:seat_tty class seat_tty origin local max_sessions 1 optional;
+netdev lo label dev:net_lo class net_lo origin local;
+netdev $WAN_IF label dev:net_wan class net_ext origin remote optional;
+netdev $LAN_IF label dev:net_lan class net_ext origin local optional;
+
+# 2. Confine web/application daemon workers: deny seat/storage access & remote exec
+deny subject subj:web_php object * device dev:seat_tty events { all } max_prov remote;
+deny subject subj:web_php object * device dev:storage_blk events { all } max_prov remote;
+deny subject subj:web_php object * device * events { exec, mmap_exec, mknod, setuid } max_prov remote;
+
+# 2b. Explicit AF_UNIX service, supervisor & Nginx <-> PHP-FPM IPC rules (default-deny)
+unix_socket flush;
+unix_socket allow subject subj:boot type any ops { create, socketpair, bind, connect, send, recv, pass_fd } endpoint /run/systemd/* peer * max_prov auth_local;
+unix_socket allow subject subj:boot type any ops { create, socketpair, send, recv } endpoint pair:subj:boot peer subj:boot max_prov auth_local;
+unix_socket allow subject subj:boot type stream ops { create, connect, send, recv } endpoint /run/pressure/authd.sock peer subj:pressure_authd max_prov auth_local;
+unix_socket allow subject subj:boot type stream ops { create, connect, send, recv } endpoint /run/pressure/sfw/mux.sock peer subj:sfw_worker max_prov auth_local;
+unix_socket allow subject subj:pressure_authd type stream ops { create, bind, send, recv } endpoint /run/pressure/authd.sock peer * max_prov auth_local;
+unix_socket allow subject * type stream ops { pass_fd, send, recv } endpoint /run/systemd/journal/stdout peer subj:boot max_prov remote;
+unix_socket allow subject subj:user_* type stream ops { create, connect, send, recv } endpoint /run/pressure/sfw/mux.sock peer subj:sfw_worker max_prov auth_local;
+unix_socket allow subject subj:daemon_sshd type stream ops { create, connect, send, recv } endpoint /run/pressure/sfw/mux.sock peer subj:sfw_worker max_prov remote;
+unix_socket allow subject subj:daemon_sshd type stream ops { create, connect, send, recv } endpoint /run/pressure/authd.sock peer subj:pressure_authd max_prov auth_local;
+unix_socket allow subject subj:daemon_nginx type stream ops { create, connect, send, recv } endpoint /run/pressure/sfw/mux.sock peer subj:sfw_worker max_prov remote;
+unix_socket allow subject subj:daemon_phpfpm type stream ops { create, bind, send, recv } endpoint /run/php-fpm/www.sock peer * max_prov remote;
+unix_socket allow subject subj:daemon_nginx type stream ops { create, connect, send, recv } endpoint /run/php-fpm/www.sock peer subj:daemon_phpfpm max_prov remote;
+
+# 3. Dual-stack AF_UNIX sfw socket worker rules (IPv4 + IPv6, TCP + UDP)
+sfw_socket flush;
+sfw_socket allow any uid * dst 127.0.0.0/8 ports * dev dev:net_lo max_prov auth_local;
+sfw_socket allow any uid * dst ::1/128 ports * dev dev:net_lo max_prov auth_local;
+sfw_socket allow bind uid * dst 0.0.0.0/0 ports 22-443 dev * max_prov auth_local;
+sfw_socket allow bind uid * dst ::/0 ports 22-443 dev * max_prov auth_local;
+sfw_socket allow send uid * dst 0.0.0.0/0 ports 53 dev * max_prov auth_local;
+sfw_socket allow recv uid * dst 0.0.0.0/0 ports 53 dev * max_prov auth_local;
+sfw_socket allow send uid * dst ::/0 ports 53 dev * max_prov auth_local;
+sfw_socket allow recv uid * dst ::/0 ports 53 dev * max_prov auth_local;
+
+# 4. Standalone Server 5-Chain Firewall Defaults (fail-closed FORWARD!)
+sfw_chain flush;
+sfw_nat flush;
+
+sfw_chain policy input drop;
+sfw_chain policy forward drop;
+sfw_chain policy output accept;
+
+sfw_chain allow input proto all in * out * src * dst * state established;
+sfw_chain allow input proto tcp in $WAN_IF out * src * dst * dports 22 state new;
+sfw_chain allow input proto tcp in $WAN_IF out * src * dst * dports 80 state new;
+sfw_chain allow input proto tcp in $WAN_IF out * src * dst * dports 443 state new;
+sfw_chain allow input proto icmp in * out * src * dst *;
+
+set enforce on;

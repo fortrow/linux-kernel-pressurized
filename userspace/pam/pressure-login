@@ -1,0 +1,3 @@
+auth     required /lib/x86_64-linux-gnu/security/pam_pressure.so
+account  required /lib/x86_64-linux-gnu/security/pam_pressure.so
+session  required /lib/x86_64-linux-gnu/security/pam_pressure.so

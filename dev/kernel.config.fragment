@@ -1,0 +1,80 @@
+# Pressure Patched Kernel + sfw Socket Firewall + QEMU/KVM Fragment
+# Merged atop x86_64_defconfig + kvm_guest.config
+
+# Allow iterative kernel/module development without -Werror halts
+# CONFIG_WERROR is not set
+
+# Loadable kernel modules (for sfw.ko)
+CONFIG_MODULES=y
+CONFIG_MODULE_UNLOAD=y
+CONFIG_MODULE_FORCE_UNLOAD=y
+
+# Disable Netfilter completely -- replaced by sfw (Socket Firewall)
+# CONFIG_NETFILTER is not set
+CONFIG_NAMESPACES=y
+CONFIG_NET_NS=y
+CONFIG_VETH=y
+
+# Initramfs & compression
+CONFIG_BLK_DEV_INITRD=y
+CONFIG_RD_GZIP=y
+CONFIG_RD_ZSTD=y
+CONFIG_DEVTMPFS=y
+CONFIG_DEVTMPFS_MOUNT=y
+
+# Filesystems, extended attributes & VirtIO-9p host sharing
+CONFIG_EXT4_FS=y
+CONFIG_EXT4_FS_POSIX_ACL=y
+CONFIG_EXT4_FS_SECURITY=y
+CONFIG_TMPFS=y
+CONFIG_TMPFS_POSIX_ACL=y
+CONFIG_TMPFS_XATTR=y
+CONFIG_NET_9P=y
+CONFIG_NET_9P_VIRTIO=y
+CONFIG_9P_FS=y
+CONFIG_9P_FS_POSIX_ACL=y
+CONFIG_9P_FS_SECURITY=y
+
+# Pressure LSM (sole MAC LSM; disable SELinux to avoid xattr/hook overlap)
+# CONFIG_SECURITY_SELINUX is not set
+CONFIG_SECURITY=y
+CONFIG_SECURITYFS=y
+CONFIG_SECURITY_NETWORK=y
+CONFIG_SECURITY_PATH=y
+CONFIG_SECURITY_PRESSURE=y
+CONFIG_LSM="landlock,lockdown,yama,loadpin,safesetid,pressure,bpf"
+CONFIG_KEYS=y
+CONFIG_BPF=y
+CONFIG_BPF_SYSCALL=y
+CONFIG_BPF_JIT=y
+CONFIG_BPF_LSM=y
+
+# Debugging, BTF, Ftrace & GDB kernel scripts
+CONFIG_DEBUG_KERNEL=y
+CONFIG_DEBUG_INFO=y
+CONFIG_DEBUG_INFO_DWARF5=y
+CONFIG_DEBUG_INFO_BTF=y
+CONFIG_DEBUG_INFO_BTF_MODULES=y
+CONFIG_GDB_SCRIPTS=y
+CONFIG_FRAME_POINTER=y
+CONFIG_KALLSYMS=y
+CONFIG_KALLSYMS_ALL=y
+CONFIG_DYNAMIC_DEBUG=y
+CONFIG_DEBUG_FS=y
+CONFIG_FTRACE=y
+CONFIG_FUNCTION_TRACER=y
+CONFIG_PRINTK_TIME=y
+CONFIG_EARLY_PRINTK=y
+CONFIG_MAGIC_SYSRQ=y
+
+# Trim heavy bare-metal drivers not needed in QEMU to speed up builds
+# CONFIG_DRM is not set
+# CONFIG_AGP is not set
+# CONFIG_SOUND is not set
+# CONFIG_CFG80211 is not set
+# CONFIG_MAC80211 is not set
+# CONFIG_PCCARD is not set
+# CONFIG_USB is not set
+# CONFIG_HIBERNATION is not set
+# CONFIG_MACINTOSH_DRIVERS is not set
+# CONFIG_TIGON3 is not set
